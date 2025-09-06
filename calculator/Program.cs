@@ -1,4 +1,4 @@
-﻿using Windows.ApplicationModel.Activation;
+﻿using System;
 
 class Calculator
 {
@@ -17,13 +17,14 @@ class Calculator
             """
         );
     }
+
     static void PrintOperationInstructions(bool useMemory)
     {
         Console.WriteLine(
             $"""
 
                 Введите число для выбора операции:
-                (1) Сложить два числа (*)
+                (1) Сложить два числа (+)
                 (2) Вычесть два числа (-)
                 (3) Умножить два числа (*)
                 (4) Разделить два числа (/)
@@ -42,118 +43,142 @@ class Calculator
         );
     }
 
-    static double GetNumber()
+    static double GetValidatedNumber()
     {
+        const double maxAllowed = 1e12;
+        const double minAllowed = -1e12;
+
         Console.Write("Введите число: ");
-        double res;
-        if (Double.TryParse(Console.ReadLine(), out res))
+        string input = Console.ReadLine().Replace('.', ',');
+
+        if (!double.TryParse(input, out double number))
         {
-            return res;
-        } else
-        {
-            Console.Write("Ввод неверный, скорее всего, в нем была введена точка, а не запятая.");
-            return 0.0;
+            Console.WriteLine("Ошибка: введено не число!");
+            return double.NaN;
         }
+
+        if (number <= minAllowed || number >= maxAllowed)
+        {
+            Console.WriteLine("Ошибка: число вне допустимого диапазона!");
+            return double.NaN;
+        }
+
+        return number;
     }
 
-    static short GetInstruction()
-    {
-        Console.Write("Введите номер операции: ");
-        if (short.TryParse(Console.ReadLine(), out short res))
-        {
-            return res;
-        }
-        else
-        {
-            Console.Write("Ввод неверный, скорее всего, в нем была введена точка, а не запятая.");
-            return -1;
-        }
-    }
-
-    static double PerformBinaryAction(double a, double b, short instructionNumber)
-    {
-        return instructionNumber switch
-        {
-            1 => a + b,
-            2 => a - b,
-            3 => a * b,
-            4 => a / b,
-            5 => a % b,
-            6 => 1 / a,
-            _ => 0,
-        };
-    }
-    
-    static double PerformUnaryAction(double a, short instructionNumber)
-    {
-        return instructionNumber switch
-        {
-            6 => 1 / a,
-            7 => a * a,
-            8 => Math.Sqrt(a),
-            _ => 0
-        };
-    }
     public static void Main()
     {
-        const short BINARY_OPERATION_LAST_INDEX = 5;
-        const short UNARY_OPERATION_LAST_INDEX = 8;
         double memory = 0;
         bool useMemory = false;
-
         PrintLogo();
         PrintOperationInstructions(useMemory);
 
-        do
+        while (true)
         {
             Console.Write("\nВведите операцию: ");
-            short instructionNumber = Convert.ToInt16(Console.ReadLine());
-            double result;
+            string input = Console.ReadLine();
 
-            if (instructionNumber == -1)
+            if (!short.TryParse(input, out short operation))
             {
+                Console.WriteLine("Неизвестная операция");
                 continue;
             }
-            else if (instructionNumber == 0)
+
+            double a, b, result;
+            switch (operation)
             {
-                break;
+                case 0:
+                    return;
+
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                    a = useMemory ? memory : GetValidatedNumber();
+                    if (double.IsNaN(a)) break;
+                    b = GetValidatedNumber();
+                    if (double.IsNaN(b)) break;
+
+                    if (operation == 4 && b == 0)
+                    {
+                        Console.WriteLine("Ошибка: деление на ноль!");
+                        break;
+                    }
+
+                    if (operation == 5 && b == 0)
+                    {
+                        Console.WriteLine("Ошибка: деление на ноль!");
+                        break;
+                    }
+
+                    result = operation switch
+                    {
+                        1 => a + b,
+                        2 => a - b,
+                        3 => a * b,
+                        4 => a / b,
+                        5 => a % b,
+                        _ => 0
+                    };
+                    Console.WriteLine($"Итог: {result}");
+                    break;
+
+                case 6:
+                case 7:
+                case 8:
+                    a = useMemory ? memory : GetValidatedNumber();
+                    if (double.IsNaN(a)) break;
+
+                    if (operation == 6 && a == 0)
+                    {
+                        Console.WriteLine("Ошибка: деление на ноль!");
+                        break;
+                    }
+
+                    if (operation == 8 && a < 0)
+                    {
+                        Console.WriteLine("Ошибка: квадратный корень из отрицательного числа!");
+                        break;
+                    }
+
+                    result = operation switch
+                    {
+                        6 => 1.0 / a,
+                        7 => a * a,
+                        8 => Math.Sqrt(a),
+                        _ => 0
+                    };
+                    Console.WriteLine($"Итог: {result}");
+                    break;
+
+                case 9:
+                    a = GetValidatedNumber();
+                    if (!double.IsNaN(a)) memory = a;
+                    break;
+
+                case 10:
+                    memory = 0;
+                    Console.WriteLine("Память очищена");
+                    break;
+
+                case 11:
+                    useMemory = !useMemory;
+                    Console.WriteLine($"Использование памяти: {(useMemory ? "вкл" : "выкл")}");
+                    break;
+
+                case 12:
+                    Console.WriteLine($"Память: {memory}");
+                    break;
+
+                case 13:
+                    PrintOperationInstructions(useMemory);
+                    break;
+
+                default:
+                    Console.WriteLine("Неизвестная операция");
+                    break;
             }
-            else if (instructionNumber <= BINARY_OPERATION_LAST_INDEX)
-            {
-                double a = useMemory ? memory : GetNumber();
-                double b = GetNumber();
-                result = PerformBinaryAction(a, b, instructionNumber);
-                Console.WriteLine($"Итог: {result}");
-            }
-            else if (instructionNumber <= UNARY_OPERATION_LAST_INDEX)
-            {
-                double a = useMemory ? memory : GetNumber();
-                result = PerformUnaryAction(a, instructionNumber);
-                Console.WriteLine($"Итог: {result}");
-            }
-            else
-            {
-                switch (instructionNumber)
-                {
-                    case 9:
-                        double a = GetNumber();
-                        memory = a;
-                        break;
-                    case 10:
-                        memory = 0;
-                        Console.WriteLine("Память сброшена.");
-                        break;
-                    case 11:
-                        useMemory = !useMemory;
-                        break;
-                    case 12:
-                        Console.WriteLine($"M: {memory} (память {(useMemory ? "" : "не")} используется)");
-                        break;
-                    case 13:
-                        PrintOperationInstructions(useMemory);
-                        break;
-                }
-            }
-        } while (true);
+        }
     }
 }
